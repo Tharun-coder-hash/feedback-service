@@ -1,0 +1,39 @@
+name: Feedback Service Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # STEP 1: Compile the Java code and run the JUnit tests
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        
+    - name: Build and Run Tests
+      run: mvn clean test
+
+  # STEP 2: Build the Docker image (only happens if tests pass)
+  dockerize:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Build Docker Image
+      run: docker build -t my-docker-registry/feedback-service:${{ github.sha }} .
+      
+    - name: Push to Registry
+      run: |
+        docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASS }}
+        docker push my-docker-registry/feedback-service:${{ github.sha }}
